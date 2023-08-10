@@ -22,8 +22,6 @@ class Analysis:
 
         df = pull_hourly2(self.db_path_agg, start_dt, end_dt)
 
-        print(df)
-
         # set index and ensure all hourly observations are present
         # (we're currently missing any hours with 0 observations,
         #  which will screw up the timeseries modeling... so add them in!)
@@ -37,7 +35,7 @@ class Analysis:
 
         return df
 
-    def decompose_series(self, analysis_var="n_flight"):
+    def decompose_series(self, analysis_var: str = "n_flight") -> pd.DataFrame:
         # fit time series model
         mstl = MSTL(self.df[analysis_var], periods=[24, 24 * 7])
         self.res = mstl.fit()
