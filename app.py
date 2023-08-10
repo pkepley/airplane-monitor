@@ -204,7 +204,10 @@ def serve_layout():
 
     slayout = html.Div(
         [
-            html.H1(children="Recent Plane Summary", style={"textAlign": "center"}),
+            html.H1(
+                children="Recent Plane Observation Trends",
+                style={"textAlign": "center", "font-family": "Courier New, monospace"},
+            ),
             dcc.DatePickerSingle(id="graph-last-date", date=datetime.today().date()),
             dcc.Input(
                 id="weeks-allowed",
