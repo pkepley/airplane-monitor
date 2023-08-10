@@ -15,30 +15,29 @@ from airplane_monitor import Analysis
 cr = ConfigReader()
 app_timezone = cr.timezone
 app_base_url = cr.base_url
-print(app_base_url)
 
 
-def _midnight(src_naive_datetime):
+def _midnight(src_naive_datetime: datetime) -> datetime:
     midnight = src_naive_datetime.astimezone(timezone(app_timezone))
     midnight = datetime.combine(midnight, midnight.min.time())
     midnight = midnight.astimezone(timezone(app_timezone))
     return midnight
 
 
-def midnight_today():
+def midnight_today() -> datetime:
     src_naive_datetime = datetime.now()
     midnight = _midnight(src_naive_datetime)
     return midnight
 
 
-def week_start():
+def week_start() -> datetime:
     today = datetime.now()
     src_naive_datetime = today - timedelta(days=today.weekday())
     midnight = _midnight(src_naive_datetime)
     return midnight
 
 
-def decompose_frame(aa):
+def decompose_frame(aa: Analysis) -> pd.DataFrame:
     res = aa.decompose_series()
     trend_df = pd.DataFrame(res.trend)
     season_df = res.seasonal
@@ -53,8 +52,13 @@ def decompose_frame(aa):
     Input("graph-last-date", "date"),
     Input("weeks-allowed", "value"),
 )
-def update_dataframes(last_date, n_weeks):
-    date_end = datetime.strptime(last_date, "%Y-%m-%d") + timedelta(days=1)
+def update_dataframes(last_date_str: str, n_weeks: int):
+    # last_date comes from the app. it reflects a date in *LOCAL* time
+    # so we need to make that date timezone aware and then convert to UTC
+    date_end = datetime.strptime(last_date_str, "%Y-%m-%d") + timedelta(days=1)
+    date_end = timezone(app_timezone).localize(date_end)
+    date_end = date_end.astimezone(timezone("utc"))
+
     date_start = date_end + timedelta(days=-n_weeks * 10)
 
     # allow us to read config
@@ -81,11 +85,11 @@ def update_dataframes(last_date, n_weeks):
     Input("raw-frame", "data"),
     Input("decompose-frame", "data"),
 )
-def get_graph_time_series(df_raw, df_decomp):
-    df = pd.DataFrame(json.loads(df_raw))
+def get_graph_time_series(df_raw_str: str, df_decomp_str: str) -> go.Figure:
+    df = pd.DataFrame(json.loads(df_raw_str))
     df.index = pd.DatetimeIndex(df.index).tz_convert(app_timezone)
 
-    res = pd.DataFrame(json.loads(df_decomp))
+    res = pd.DataFrame(json.loads(df_decomp_str))
     res.index = pd.DatetimeIndex(res.index).tz_convert(app_timezone)
 
     fig = go.Figure()
@@ -109,10 +113,10 @@ def get_graph_time_series(df_raw, df_decomp):
 
 
 @callback(Output("graph-hourly", "figure"), Input("decompose-frame", "data"))
-def get_graph_hourly(df_decomp):
+def get_graph_hourly(df_decomp_str: str) -> go.Figure:
     'Returns a scatter-plot for range + today\'s line for hourly "seasonality"'
 
-    df_s = pd.DataFrame(json.loads(df_decomp))
+    df_s = pd.DataFrame(json.loads(df_decomp_str))
     df_s.index = pd.DatetimeIndex(pd.to_datetime(df_s.index)).tz_convert(app_timezone)
 
     fig = go.Figure()
@@ -144,11 +148,11 @@ def get_graph_hourly(df_decomp):
 
 # scatter-plot for range + this week's line for weekly "seasonality"
 @callback(Output("graph-weekly", "figure"), Input("decompose-frame", "data"))
-def get_graph_weekly(df_decomp):
+def get_graph_weekly(df_decomp_str: str) -> go.Figure:
     'Returns a scatter-plot for range + this week\'s line for weekly "seasonality"'
 
     # weekly data
-    df_w = pd.DataFrame(json.loads(df_decomp))
+    df_w = pd.DataFrame(json.loads(df_decomp_str))
     df_w.index = pd.DatetimeIndex(pd.to_datetime(df_w.index)).tz_convert(app_timezone)
 
     weekly = df_w[["seasonal_168"]].resample("d").mean()

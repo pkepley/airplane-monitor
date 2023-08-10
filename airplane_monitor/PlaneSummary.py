@@ -1,9 +1,10 @@
+from pathlib import Path
 import pandas as pd
 import sqlite3
 from datetime import datetime, timedelta
 
 
-def pull_hourly(db_path, start_dt_str=None):
+def pull_hourly(db_path: str | Path, start_dt_str: str | None = None):
     # TODO: this ignores Timezones. make it not do that.
     if start_dt_str is None:
         start_dt_time = datetime.combine(datetime.now(), datetime.min.time())
@@ -56,12 +57,11 @@ def pull_hourly2(
             params=(start_dt_str, end_dt_str),
             parse_dates={"hour": {"format": "%Y-%m-%d %H:%M:%S"}},
         )
-        print(dftmp.hour.max())
         return dftmp
 
 
 class PlaneSummary:
-    def __init__(self, db_path_raw, db_path_agg):
+    def __init__(self, db_path_raw: str | Path, db_path_agg: str | Path):
         self.db_path_raw = db_path_raw
         self.db_path_agg = db_path_agg
         self.init_agg_db()
@@ -75,7 +75,6 @@ class PlaneSummary:
         );"""
 
         with sqlite3.connect(self.db_path_agg) as conn:
-            print(self.db_path_agg)
             cur = conn.cursor()
             cur.execute(q_new)
 
@@ -91,7 +90,7 @@ class PlaneSummary:
             res = cur.fetchone()
             res = res[0]
 
-        res = datetime.strptime("%Y-%m-%d %H:%M:%S", res)
+        res = datetime.strptime(res, "%Y-%m-%d %H:%M:%S")
         return res
 
     @property
@@ -106,11 +105,11 @@ class PlaneSummary:
             res = cur.fetchone()
             res = res[0]
 
-        res = datetime.strptime("%Y-%m-%d %H:%M:%S", res)
+        res = datetime.strptime(res, "%Y-%m-%d %H:%M:%S")
         return res
 
     @property
-    def first_hour_agg(self):
+    def first_hour_agg(self) -> datetime:
         q = """SELECT
         MIN(STRFTIME(\"%Y-%m-%d %H:00:00\", DATETIME(hour)))
         FROM plane_observations_hourly;"""
@@ -119,11 +118,13 @@ class PlaneSummary:
             cur = conn.cursor()
             cur.execute(q)
             res = cur.fetchone()
+            res = res[0]
 
-        return res[0]
+        res = datetime.strptime(res, "%Y-%m-%d %H:%M:%S")
+        return res
 
     @property
-    def last_hour_agg(self):
+    def last_hour_agg(self) -> datetime:
         q = """SELECT
         MAX(STRFTIME(\"%Y-%m-%d %H:00:00\", DATETIME(hour)))
         FROM plane_observations_hourly;"""
@@ -132,10 +133,14 @@ class PlaneSummary:
             cur = conn.cursor()
             cur.execute(q)
             res = cur.fetchone()
+            res = res[0]
 
-        return res[0]
+        res = datetime.strptime(res, "%Y-%m-%d %H:%M:%S")
+        return res
 
-    def pull_agg_raw(self, start_hour: str | None = None, end_hour: str | None = None):
+    def pull_agg_raw(
+        self, start_hour: datetime | None = None, end_hour: datetime | None = None
+    ) -> pd.DataFrame:
         if start_hour is not None and end_hour is not None:
             filter = """
             WHERE time >= strftime('%s', ?) AND time < strftime('%s', ?)
@@ -180,12 +185,12 @@ class PlaneSummary:
         prev_hour = self.last_hour_agg
 
         if prev_hour is not None:
-            prev_hour = (
-                datetime.strptime(prev_hour, "%Y-%m-%d %H:%M:%S") + timedelta(hours=1)
-            ).strftime("%Y-%m-%d %H:00:00")
+            prev_hour = prev_hour + timedelta(hours=1)
 
         # what was the start of the current hour?
-        curr_hour = datetime.utcnow().strftime("%Y-%m-%d %H:00:00")
+        curr_hour = datetime.strptime(
+            datetime.utcnow().strftime("%Y-%m-%d %H:00:00"), "%Y-%m-%d %H:%M:%S"
+        )
 
         # get new records
         print(f"Getting records between {prev_hour} and {curr_hour}")
