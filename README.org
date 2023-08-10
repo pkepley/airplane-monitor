@@ -1,3 +1,2 @@
-#+title: Readme
 * Airplane Monitor
 Some tools for monitoring hourly plane observations harvested from dump1090.
