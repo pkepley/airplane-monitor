@@ -1,17 +1,6 @@
 import pandas as pd
 import sqlite3
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
-
-
-def thirty_day_start():
-    # TODO: this ignores Timezones. make it not do that.
-    start_dt_time = datetime.combine(
-        datetime.now() + timedelta(days=-30), datetime.min.time()
-    )
-    start_dt_str = datetime.strftime(start_dt_time, "%Y-%m-%d %H:%M:%S")
-
-    return start_dt_str
+from datetime import datetime, timedelta
 
 
 def pull_hourly(db_path, start_dt_str=None):
@@ -42,17 +31,19 @@ def pull_hourly(db_path, start_dt_str=None):
 
 
 def pull_hourly2(
-    agg_db_path, start_dt_str: str | None = None, end_dt_str: str | None = None
-):
+    agg_db_path, start_dt: datetime | None = None, end_dt: datetime | None = None
+) -> pd.DataFrame:
     # TODO: this ignores Timezones. make it not do that.
-    if start_dt_str is None:
-        start_dt_time = datetime.combine(datetime.now(), datetime.min.time())
-        start_dt_str = datetime.strftime(start_dt_time, "%Y-%m-%d %H:%M:%S")
+    if start_dt is None:
+        start_dt = datetime.combine(datetime.now(), datetime.min.time())
 
     # TODO: this ignores Timezones. make it not do that.
-    if end_dt_str is None:
-        end_dt_time = datetime.now()
-        end_dt_str = datetime.strftime(end_dt_time, "%Y-%m-%d %H:%M:%S")
+    if end_dt is None:
+        end_dt = datetime.now()
+
+    # convert to string for sqlite
+    start_dt_str = start_dt.strftime("%Y-%m-%d %H:%M:%S")
+    end_dt_str = end_dt.strftime("%Y-%m-%d %H:%M:%S")
 
     with sqlite3.connect(agg_db_path) as conn:
         dftmp = pd.read_sql_query(
@@ -89,7 +80,7 @@ class PlaneSummary:
             cur.execute(q_new)
 
     @property
-    def first_hour_raw(self):
+    def first_hour_raw(self) -> datetime:
         q = """SELECT
         STRFTIME(\"%Y-%m-%d %H:00:00\", DATETIME(MIN(time), 'unixepoch'))
         FROM plane_observations;"""
@@ -98,11 +89,13 @@ class PlaneSummary:
             cur = conn.cursor()
             cur.execute(q)
             res = cur.fetchone()
+            res = res[0]
 
-        return res[0]
+        res = datetime.strptime("%Y-%m-%d %H:%M:%S", res)
+        return res
 
     @property
-    def last_hour_raw(self):
+    def last_hour_raw(self) -> datetime:
         q = """SELECT
         STRFTIME(\"%Y-%m-%d %H:00:00\", DATETIME(MAX(time), 'unixepoch'))
         FROM plane_observations;"""
@@ -111,8 +104,10 @@ class PlaneSummary:
             cur = conn.cursor()
             cur.execute(q)
             res = cur.fetchone()
+            res = res[0]
 
-        return res[0]
+        res = datetime.strptime("%Y-%m-%d %H:%M:%S", res)
+        return res
 
     @property
     def first_hour_agg(self):

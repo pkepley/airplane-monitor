@@ -1,28 +1,26 @@
-from datetime import datetime, timezone
+from datetime import datetime
 import pandas as pd
 from statsmodels.tsa.seasonal import MSTL
-from airplane_monitor.PlaneSummary import PlaneSummary, pull_hourly2, thirty_day_start
+from airplane_monitor.PlaneSummary import PlaneSummary, pull_hourly2
 
 
 class Analysis:
-    def __init__(
-        self, db_path_raw: str, db_path_agg: str, timezone: str = "US/Eastern"
-    ):
-        self.timezone = timezone
+    def __init__(self, db_path_raw: str, db_path_agg: str, tz_str: str = "US/Eastern"):
+        self.timezone = tz_str
         self.db_path_raw = db_path_raw
         self.db_path_agg = db_path_agg
         self.plane_summary = PlaneSummary(self.db_path_raw, self.db_path_agg)
 
     def pull_hourly(
-        self, start_dt_str: str | None, end_dt_str: str | None
+        self, start_dt: datetime | None, end_dt: datetime | None
     ) -> pd.DataFrame:
-        if start_dt_str is None:
-            start_dt_str = self.plane_summary.first_hour_agg
+        if start_dt is None:
+            start_dt = self.plane_summary.first_hour_agg
 
-        if end_dt_str is None:
-            end_dt_str = self.plane_summary.last_hour_raw
+        if end_dt is None:
+            end_dt = self.plane_summary.last_hour_raw
 
-        df = pull_hourly2(self.db_path_agg, start_dt_str, end_dt_str)
+        df = pull_hourly2(self.db_path_agg, start_dt, end_dt)
 
         print(df)
 
@@ -45,22 +43,3 @@ class Analysis:
         self.res = mstl.fit()
 
         return self.res
-
-    def blah(self):
-        # plot weekly 'seasonality'
-        weekly = self.res.seasonal[["seasonal_168"]].resample("d").mean()
-        weekly["week_day_num"] = weekly.index.day_of_week
-        weekly["week_day"] = weekly.index.day_name()
-
-        # get mean, useful for extracting order
-        weekly_mean = (
-            weekly.groupby(["week_day_num", "week_day"], as_index=False)
-            .mean()
-            .sort_values("week_day_num")
-        )
-
-
-if __name__ == "__main__":
-    from config_reader import ConfigReader
-
-    aa = Analysis()
